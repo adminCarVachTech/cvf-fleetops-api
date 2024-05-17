@@ -118,28 +118,22 @@ class GeocoderController extends Controller
      */
     public function reverse(Request $request)
     {
-        $query = $request->input('coordinates', $request->input('query'));
-        $single = $request->boolean('single');
+        $coordinates = $request->query('coordinates');
 
-        if (isset($query['lat']) && isset($query['lon'])) {
-            $lat = $query['lat'];
-            $lon = $query['lon'];
-        } else {
-            return response()->json(['error' => 'Coordinates not provided'], 400);
-        }
+        // Extract latitude and longitude (assuming comma separation)
+        $parts = explode(',', $coordinates);
+
+        $latitude = $parts[0];
+        $longitude = $parts[1];
 
         $response = Http::get('https://nominatim.openstreetmap.org/reverse', [
-            'lat' => $lat,
-            'lon' => $lon,
+            'lat' => $latitude,
+            'lon' => $longitude,
             'format' => 'jsonv2'
         ]);
 
         if ($response->successful()) {
             $result = $this->formatNominatimResponse($response->json());
-
-            if ($single) {
-                return response()->json($result);
-            }
 
             return response()->json([$result]);
         }
