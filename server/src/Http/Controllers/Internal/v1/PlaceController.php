@@ -12,6 +12,10 @@ use Fleetbase\LaravelMysqlSpatial\Types\Point;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
+// additions
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Facades\Log;
 
 class PlaceController extends FleetOpsController
 {
@@ -22,6 +26,66 @@ class PlaceController extends FleetOpsController
      */
     public $resource = 'place';
 
+    // /**
+    //  * Quick search places for selection.
+    //  *
+    //  * @return \Illuminate\Http\Response
+    //  */
+    // public function search(Request $request)
+    // {
+    //     $searchQuery = $request->searchQuery();
+    //     $limit       = $request->input('limit', 30);
+    //     $geo         = $request->boolean('geo');
+    //     $latitude    = $request->input('latitude');
+    //     $longitude   = $request->input('longitude');
+
+    //     $query = Place::where('company_uuid', session('company'))
+    //         ->whereNull('deleted_at')
+    //         ->search($searchQuery);
+
+    //     if ($latitude && $longitude) {
+    //         $point = new Point($latitude, $longitude);
+    //         $query->orderByDistanceSphere('location', $point, 'asc');
+    //     } else {
+    //         $query->orderBy('name', 'desc');
+    //     }
+
+    //     if ($limit) {
+    //         $query->limit($limit);
+    //     }
+
+    //     $results = $query->get();
+
+    //     if ($geo) {
+    //         if ($searchQuery) {
+    //             try {
+    //                 $geocodingResults = Geocoding::query($searchQuery, $latitude, $longitude);
+
+    //                 foreach ($geocodingResults as $result) {
+    //                     $results->push($result);
+    //                 }
+    //             } catch (\Throwable $e) {
+    //                 return response()->error($e->getMessage());
+    //             }
+    //         } elseif ($latitude && $longitude) {
+    //             try {
+    //                 $geocodingResults = Geocoding::reverseFromCoordinates($latitude, $longitude, $searchQuery);
+
+    //                 foreach ($geocodingResults as $result) {
+    //                     $results->push($result);
+    //                 }
+    //             } catch (\Throwable $e) {
+    //                 return response()->error($e->getMessage());
+    //             }
+    //         }
+    //     }
+
+    //     return response()->json($results)->withHeaders(['Cache-Control' => 'no-cache']);
+    // }
+
+
+    // _______________________Modified Code, OSM____________________________
+
     /**
      * Quick search places for selection.
      *
@@ -29,7 +93,7 @@ class PlaceController extends FleetOpsController
      */
     public function search(Request $request)
     {
-        $searchQuery = $request->searchQuery();
+        $searchQuery = $request->input('searchQuery');
         $limit       = $request->input('limit', 30);
         $geo         = $request->boolean('geo');
         $latitude    = $request->input('latitude');
@@ -53,31 +117,53 @@ class PlaceController extends FleetOpsController
         $results = $query->get();
 
         if ($geo) {
+            $client = new Client();
+
             if ($searchQuery) {
-                try {
-                    $geocodingResults = Geocoding::query($searchQuery, $latitude, $longitude);
-
-                    foreach ($geocodingResults as $result) {
-                        $results->push($result);
-                    }
-                } catch (\Throwable $e) {
-                    return response()->error($e->getMessage());
-                }
+                $url = 'https://nominatim.openstreetmap.org/search';
+                $params = [
+                    'q' => $searchQuery,
+                    'format' => 'json',
+                    'limit' => $limit,
+                    'viewbox' => "$longitude,$latitude,$longitude,$latitude",
+                    'bounded' => 1,
+                    'addressdetails' => 1
+                ];
             } elseif ($latitude && $longitude) {
-                try {
-                    $geocodingResults = Geocoding::reverseFromCoordinates($latitude, $longitude, $searchQuery);
+                $url = 'https://nominatim.openstreetmap.org/reverse';
+                $params = [
+                    'lat' => $latitude,
+                    'lon' => $longitude,
+                    'format' => 'json',
+                    'addressdetails' => 1
+                ];
+            }
 
-                    foreach ($geocodingResults as $result) {
-                        $results->push($result);
-                    }
-                } catch (\Throwable $e) {
-                    return response()->error($e->getMessage());
+            try {
+                $response = $client->request('GET', $url, ['query' => $params]);
+                $geocodingResults = json_decode($response->getBody(), true);
+
+                foreach ($geocodingResults as $result) {
+                    $place = new Place();
+                    $place->name = $result['display_name'];
+                    $place->latitude = $result['lat'];
+                    $place->longitude = $result['lon'];
+                    $results->push($place);
                 }
+
+                Log::info('Geocoding Results:', $geocodingResults);
+            } catch (RequestException $e) {
+                Log::error('Geocoding API Error:', ['message' => $e->getMessage()]);
+                return response()->json(['error' => $e->getMessage()], 500);
             }
         }
 
-        return response()->json($results)->withHeaders(['Cache-Control' => 'no-cache']);
+        Log::info('Search Results:', $results->toArray());
+
+        return response()->json($results);
     }
+
+    // ______________________________________________________________________
 
     /**
      * Search using geocoder for addresses.
