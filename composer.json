@@ -65,7 +65,7 @@
                 "Fleetbase\\FleetOps\\Providers\\EventServiceProvider"
             ]
         },
-        "fleetbase/fleetops-api": {
+        "pawanmkr/fleetops-api": {
             "excludes": [
                 "addon",
                 "app",
