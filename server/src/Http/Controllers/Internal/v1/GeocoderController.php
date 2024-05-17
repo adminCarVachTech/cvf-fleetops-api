@@ -101,10 +101,8 @@
 
 namespace Fleetbase\FleetOps\Http\Controllers\Internal\v1;
 
-use Fleetbase\FleetOps\Models\Place;
 use Fleetbase\FleetOps\Support\Utils;
 use Fleetbase\Http\Controllers\Controller;
-// use Geocoder\Laravel\Facades\Geocoder; // Commented out original Geocoder facade
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -123,22 +121,14 @@ class GeocoderController extends Controller
         $query = $request->input('coordinates', $request->input('query'));
         $single = $request->boolean('single');
 
-        Log::info('Received reverse geocoding request', ['query' => $query, 'single' => $single]);
-        echo "Received reverse geocoding request with query: $query, single: $single\n";
-
         /** @var \Fleetbase\LaravelMysqlSpatial\Types\Point $coordinates */
         $coordinates = Utils::getPointFromCoordinates($query);
 
         // if not a valid point error
         if (!$coordinates instanceof \Fleetbase\LaravelMysqlSpatial\Types\Point) {
             Log::error('Invalid coordinates provided.', ['query' => $query]);
-            echo "Invalid coordinates provided.\n";
             return response()->json(['error' => 'Invalid coordinates provided.'], 400);
         }
-
-        // OpenStreetMap Nominatim API request
-        Log::info('Making request to OpenStreetMap Nominatim API', ['lat' => $coordinates->getLat(), 'lon' => $coordinates->getLng()]);
-        echo "Making request to OpenStreetMap Nominatim API with lat: {$coordinates->getLat()}, lon: {$coordinates->getLng()}\n";
 
         $response = Http::get('https://nominatim.openstreetmap.org/reverse', [
             'lat' => $coordinates->getLat(),
@@ -147,9 +137,6 @@ class GeocoderController extends Controller
         ]);
 
         if ($response->successful()) {
-            Log::info('Received successful response from OpenStreetMap Nominatim API', ['response' => $response->json()]);
-            echo "Received successful response from OpenStreetMap Nominatim API.\n";
-
             $result = $this->formatNominatimResponse($response->json());
 
             if ($single) {
@@ -158,9 +145,6 @@ class GeocoderController extends Controller
 
             return response()->json([$result]);
         }
-
-        Log::error('Failed to receive a successful response from OpenStreetMap Nominatim API');
-        echo "Failed to receive a successful response from OpenStreetMap Nominatim API.\n";
 
         return response()->json([]);
 
@@ -194,16 +178,11 @@ class GeocoderController extends Controller
         $query = $request->input('query');
         $single = $request->boolean('single');
 
-        Log::info('Received geocoding request', ['query' => $query, 'single' => $single]);
-        echo "Received geocoding request with query: $query, single: $single\n";
-
         if (is_array($query)) {
             return $this->reverse($request);
         }
 
         // OpenStreetMap Nominatim API request
-        Log::info('Making request to OpenStreetMap Nominatim API', ['query' => $query]);
-        echo "Making request to OpenStreetMap Nominatim API with query: $query\n";
 
         $response = Http::get('https://nominatim.openstreetmap.org/search', [
             'q' => $query,
@@ -211,8 +190,6 @@ class GeocoderController extends Controller
         ]);
 
         if ($response->successful()) {
-            Log::info('Received successful response from OpenStreetMap Nominatim API', ['response' => $response->json()]);
-            echo "Received successful response from OpenStreetMap Nominatim API.\n";
 
             $results = collect($response->json())->map(function ($item) {
                 return $this->formatNominatimResponse($item);
@@ -224,9 +201,6 @@ class GeocoderController extends Controller
 
             return response()->json($results);
         }
-
-        Log::error('Failed to receive a successful response from OpenStreetMap Nominatim API');
-        echo "Failed to receive a successful response from OpenStreetMap Nominatim API.\n";
 
         return response()->json([]);
 
@@ -257,9 +231,6 @@ class GeocoderController extends Controller
      */
     private function formatNominatimResponse(array $data)
     {
-        Log::info('Formatting Nominatim response', ['data' => $data]);
-        echo "Formatting Nominatim response.\n";
-
         return [
             'street1' => $data['address']['road'] ?? '',
             'postal_code' => $data['address']['postcode'] ?? '',
@@ -280,3 +251,20 @@ class GeocoderController extends Controller
         ];
     }
 }
+Collapse
+
+
+
+
+
+Message Pawan
+
+
+
+
+
+
+
+
+
+
