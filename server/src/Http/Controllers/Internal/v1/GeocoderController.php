@@ -121,18 +121,16 @@ class GeocoderController extends Controller
         $query = $request->input('coordinates', $request->input('query'));
         $single = $request->boolean('single');
 
-        /** @var \Fleetbase\LaravelMysqlSpatial\Types\Point $coordinates */
-        $coordinates = Utils::getPointFromCoordinates($query);
-
-        // if not a valid point error
-        if (!$coordinates instanceof \Fleetbase\LaravelMysqlSpatial\Types\Point) {
-            Log::error('Invalid coordinates provided.', ['query' => $query]);
-            return response()->json(['error' => 'Invalid coordinates provided.'], 400);
+        if (isset($query['lat']) && isset($query['lon'])) {
+            $lat = $query['lat'];
+            $lon = $query['lon'];
+        } else {
+            return response()->json(['error' => 'Coordinates not provided'], 400);
         }
 
         $response = Http::get('https://nominatim.openstreetmap.org/reverse', [
-            'lat' => $coordinates->getLat(),
-            'lon' => $coordinates->getLng(),
+            'lat' => $lat,
+            'lon' => $lon,
             'format' => 'jsonv2'
         ]);
 
@@ -178,12 +176,6 @@ class GeocoderController extends Controller
         $query = $request->input('query');
         $single = $request->boolean('single');
 
-        if (is_array($query)) {
-            return $this->reverse($request);
-        }
-
-        // OpenStreetMap Nominatim API request
-
         $response = Http::get('https://nominatim.openstreetmap.org/search', [
             'q' => $query,
             'format' => 'jsonv2'
@@ -226,7 +218,7 @@ class GeocoderController extends Controller
      * Formats the Nominatim response to the required format.
      *
      * @param array $data The response data from Nominatim
-     * 
+     *
      * @return array The formatted response
      */
     private function formatNominatimResponse(array $data)
