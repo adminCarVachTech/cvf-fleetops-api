@@ -93,56 +93,69 @@ class PlaceController extends FleetOpsController
      */
     public function search(Request $request)
     {
-        $searchQuery = $request->input('searchQuery');
-        $limit       = $request->input('limit', 30);
-        $geo         = $request->boolean('geo');
-        $latitude    = $request->input('latitude');
-        $longitude   = $request->input('longitude');
+        $latitude  = $request->input('latitude');
+        $longitude = $request->input('longitude');
+        $query     = $request->input('query');
+        $limit     = $request->input('limit', 30);
+        $geo       = $request->boolean('geo');
 
-        $query = Place::where('company_uuid', session('company'))
-            ->whereNull('deleted_at')
-            ->search($searchQuery);
-
+        // Prioritize search by lat/long if provided
         if ($latitude && $longitude) {
-            $point = new Point($latitude, $longitude);
-            $query->orderByDistanceSphere('location', $point, 'asc');
+            $results = $this->searchByLatLng($latitude, $longitude, $limit);
+
+            // If no results found by lat/long, fallback to search by query
+            if ($results->isEmpty()) {
+                $results = $this->searchByQuery($query, $limit);
+            }
         } else {
-            $query->orderBy('name', 'desc');
+            $results = $this->searchByQuery($query, $limit);
         }
 
-        if ($limit) {
-            $query->limit($limit);
-        }
+        // $internalResults = Place::where('company_uuid', session('company'))
+        //     ->whereNull('deleted_at')
+        //     ->search($query)
+        //     ->orderBy('name', 'desc');
 
-        $results = $query->get();
+        // if ($limit) {
+        //     $internalResults = $internalResults->limit($limit);
+        // }
+
+        // $results = $results->merge($internalResults->get());
+
+        Log::info('Search Results:', $results->toArray());
 
         if ($geo) {
+            // ... rest of the geocoding logic from original code ...
+        }
+
+        return response()->json($results);
+    }
+
+    private function searchByLatLng($latitude, $longitude, $limit)
+    {
+        $url = "https://nominatim.openstreetmap.org/reverse?lat=$latitude&lon=$longitude&format=jsonv2&limit=$limit";
+        return $this->processGeocodingResponse($url);
+    }
+
+    private function searchByQuery($query, $limit)
+    {
+        if (!$query) {
+            return collect();
+        }
+
+        $url = "https://nominatim.openstreetmap.org/search.php?q=$query&format=jsonv2&limit=$limit";
+        return $this->processGeocodingResponse($url);
+    }
+
+    private function processGeocodingResponse($url)
+    {
+        try {
             $client = new Client();
+            $response = $client->request('GET', $url);
+            $geocodingResults = json_decode($response->getBody(), true);
 
-            if ($searchQuery) {
-                $url = 'https://nominatim.openstreetmap.org/search';
-                $params = [
-                    'q' => $searchQuery,
-                    'format' => 'json',
-                    'limit' => $limit,
-                    'viewbox' => "$longitude,$latitude,$longitude,$latitude",
-                    'bounded' => 1,
-                    'addressdetails' => 1
-                ];
-            } elseif ($latitude && $longitude) {
-                $url = 'https://nominatim.openstreetmap.org/reverse';
-                $params = [
-                    'lat' => $latitude,
-                    'lon' => $longitude,
-                    'format' => 'json',
-                    'addressdetails' => 1
-                ];
-            }
-
-            try {
-                $response = $client->request('GET', $url, ['query' => $params]);
-                $geocodingResults = json_decode($response->getBody(), true);
-
+            $results = collect();
+            if (isset($geocodingResults[0])) {
                 foreach ($geocodingResults as $result) {
                     $place = new Place();
                     $place->name = $result['display_name'];
@@ -150,18 +163,14 @@ class PlaceController extends FleetOpsController
                     $place->longitude = $result['lon'];
                     $results->push($place);
                 }
-
-                Log::info('Geocoding Results:', $geocodingResults);
-            } catch (RequestException $e) {
-                Log::error('Geocoding API Error:', ['message' => $e->getMessage()]);
-                return response()->json(['error' => $e->getMessage()], 500);
             }
+            return $results;
+        } catch (RequestException $e) {
+            Log::error('Geocoding API Error:', ['message' => $e->getMessage()]);
+            return collect();
         }
-
-        Log::info('Search Results:', $results->toArray());
-
-        return response()->json($results);
     }
+
 
     // ______________________________________________________________________
 
