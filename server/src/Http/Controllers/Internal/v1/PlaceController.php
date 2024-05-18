@@ -157,11 +157,26 @@ class PlaceController extends FleetOpsController
             $results = collect();
             if (isset($geocodingResults[0])) {
                 foreach ($geocodingResults as $result) {
-                    $place = new Place();
-                    $place->name = $result['display_name'];
-                    $place->latitude = $result['lat'];
-                    $place->longitude = $result['lon'];
-                    $results->push($place);
+                    $parsedAddress = $this->parseDisplayName($result['display_name']);
+                    $formattedResult = [
+                        'street1' => $parsedAddress['address'],
+                        'postal_code' => $parsedAddress['postal_code'],
+                        'neighborhood' => null,
+                        'city' => $parsedAddress['city'],
+                        'building' => null,
+                        'country' => null,
+                        'location' => [
+                            'type' => 'Point',
+                            'coordinates' => [
+                                (float) $result['lon'],
+                                (float) $result['lat'],
+                            ],
+                        ],
+                        'country_name' => $parsedAddress['country_name'],
+                        'address' => strtoupper($result['display_name']),
+                        'address_html' => strtoupper($result['display_name']),
+                    ];
+                    $results->push($formattedResult);
                 }
             }
             return $results;
@@ -169,6 +184,26 @@ class PlaceController extends FleetOpsController
             Log::error('Geocoding API Error:', ['message' => $e->getMessage()]);
             return collect();
         }
+    }
+
+    private function parseDisplayName($displayName)
+    {
+        $parts = explode(',', $displayName);
+        $numParts = count($parts);
+
+        $country_name = trim($parts[$numParts - 1] ?? '');
+        $postal_code = trim($parts[$numParts - 2] ?? '');
+        $city = trim($parts[$numParts - 3] ?? '');
+
+        // Combining the rest of the parts to form the address
+        $address = implode(',', array_slice($parts, 0, $numParts - 3));
+
+        return [
+            'country_name' => $country_name,
+            'postal_code' => $postal_code,
+            'city' => $city,
+            'address' => $address,
+        ];
     }
 
 
