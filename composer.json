@@ -1,6 +1,6 @@
 {
     "name": "cv/fleetops-api",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "description": "Fleet & Transport Management Extension for Carvach FleetOps",
     "keywords": [
         "fleetbase-extension",
