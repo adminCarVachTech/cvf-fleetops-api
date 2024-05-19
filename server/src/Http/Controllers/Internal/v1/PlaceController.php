@@ -111,22 +111,26 @@ class PlaceController extends FleetOpsController
             $results = $this->searchByQuery($query, $limit);
         }
 
-        // $internalResults = Place::where('company_uuid', session('company'))
-        //     ->whereNull('deleted_at')
-        //     ->search($query)
-        //     ->orderBy('name', 'desc');
+        try {
+            // Internal search
+            $internalResultsQuery = Place::where('company_uuid', session('company'))
+                ->whereNull('deleted_at')
+                ->search($query)
+                ->orderBy('name', 'desc');
 
-        // if ($limit) {
-        //     $internalResults = $internalResults->limit($limit);
-        // }
+            if ($limit) {
+                $internalResultsQuery = $internalResultsQuery->limit($limit);
+            }
 
-        // $results = $results->merge($internalResults->get());
-
-        Log::info('Search Results:', $results->toArray());
-
-        if ($geo) {
-            // ... rest of the geocoding logic from original code ...
+            $internalResults = $internalResultsQuery->get();
+            $results = $results->merge($internalResults);
+        } catch (\Exception $e) {
+            // Log the error
+            Log::error('Database Query Error:', ['message' => $e->getMessage()]);
+            // Continue with OSM results only
         }
+        
+        Log::info('Search Results:', $results->toArray());
 
         return response()->json($results);
     }
