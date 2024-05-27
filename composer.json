@@ -18,7 +18,7 @@
     ],
     "require": {
         "php": "^8.0",
-        "rohit0814/core-api": "^0.0.1",
+        "rohit0814/core-api": "*",
         "barryvdh/laravel-dompdf": "^2.0",
         "brick/geo": "0.7.2",
         "cknow/laravel-money": "^7.1",
