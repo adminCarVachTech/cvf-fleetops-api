@@ -1,15 +1,6 @@
-<p align="center">
-    <img src="https://flb-assets.s3.ap-southeast-1.amazonaws.com/static/fleetbase-logo-svg.svg" width="380" height="100" />
-</p>
-<p align="center">
-    Open-source Fleet & Transport Management Extension for Fleetbase
-</p>
-
----
-
 ## Overview
 
-This monorepo contains both the frontend and backend components of the FleetOps extension for Fleetbase. The frontend is built using Ember.js and the backend is implemented in PHP.
+This monorepo contains both the frontend and backend components of the FleetOps extension. The frontend is built using Ember.js and the backend is implemented in PHP.
 
 ### Requirements
 
@@ -56,15 +47,15 @@ This monorepo contains both the frontend and backend components of the FleetOps 
 Install the PHP packages using Composer:
 
 ```bash
-composer require fleetbase/core-api
-composer require fleetbase/fleetops-api
+composer require rohit0814/core-api
+composer require rohit0814/fleetops-api
 ```
 ### Frontend
 
 Install the Ember.js Engine/Addon:
 
 ```bash
-pnpm install @fleetbase/fleetops-engine
+pnpm install cv-fleetops-engine
 ```
 
 ## Usage
@@ -114,9 +105,3 @@ pnpm start
 ```bash
 pnpm build
 ```
-
-## Contributing
-See the Contributing Guide for details on how to contribute to this project.
-
-## License
-This project is licensed under the MIT License.
