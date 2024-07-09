@@ -188,7 +188,14 @@ class GeocoderController extends Controller
             return response()->json($results);
         }
 
-        return response()->json([]);
+        // Handle error
+        $statusCode = $response->status();
+        $errorMessage = $response->body();
+        
+        return response()->json([
+            'error' => 'Failed to fetch geocoding results',
+            'details' => $errorMessage
+        ], $statusCode);
 
         // Original code using Geocoder
         // $results = Geocoder::geocode($query)->get();
